@@ -4,7 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fortune Bank | Professional</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js">async function handleMpesa(action) { 
+    const phone = action === "stkpush" ? document.getElementById("depPhone").value : document.getElementById("witPhone").value; 
+    const amount = action === "stkpush" ? document.getElementById("depAmt").value : document.getElementById("witAmt").value; 
+    if(!phone || !amount) return alert("Fill all fields"); 
+    const res = await fetch(`/api/mpesa/${action}`, { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ phone, amount }) }); 
+    const data = await res.json(); 
+    alert(data.message || data.error); 
+    if(res.ok) refreshData(); 
+}
+</script>
     <style>
         :root { --primary: #aa0000; --secondary: #333; --success: #27ae60; --bg: #f4f7f6; --text: #2c3e50; }
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -111,7 +120,9 @@
             <div id="paybillDiv" class="hidden">
                 <h4>Pay Bill</h4><input type="text" id="bizNo" placeholder="Business No"><input type="text" id="billRef" placeholder="Account Reference"><input type="number" id="billAmt" placeholder="Amount"><button onclick="payBill()">Execute Payment</button>
             </div>
-            <div id="supportDiv" class="hidden">
+            <div id="depositDiv" class="hidden"><h4>M-Pesa Deposit</h4><input type="text" id="depPhone" placeholder="254..."><input type="number" id="depAmt" placeholder="Amount"><button onclick="handleMpesa('stkpush')" style="background:#27ae60;">Request STK Push</button></div>
+<div id="withdrawDiv" class="hidden"><h4>Withdraw to M-Pesa</h4><input type="text" id="witPhone" placeholder="254..."><input type="number" id="witAmt" placeholder="Amount"><button onclick="handleMpesa('withdraw')" style="background:#000;">Confirm Withdrawal</button></div>
+<div id="supportDiv" class="hidden">
                 <h4>Contact Support</h4>
                 <textarea id="supportMsg" rows="3" placeholder="Explain your issue here..."></textarea>
                 <button onclick="sendSupportEmail()" style="background: var(--secondary);">Send Ticket</button>
@@ -140,7 +151,7 @@
     }
 
     function showService(id) {
-        ['transferDiv', 'airtimeDiv', 'paybillDiv', 'supportDiv'].forEach(s => document.getElementById(s).classList.add('hidden'));
+        ['transferDiv', 'airtimeDiv', 'paybillDiv', 'supportDiv', 'depositDiv', 'withdrawDiv'].forEach(s => document.getElementById(s).classList.add('hidden'));
         document.getElementById(id + 'Div').classList.remove('hidden');
     }
 
@@ -305,6 +316,15 @@
     }
 
     function logout() { location.reload(); }
+async function handleMpesa(action) { 
+    const phone = action === "stkpush" ? document.getElementById("depPhone").value : document.getElementById("witPhone").value; 
+    const amount = action === "stkpush" ? document.getElementById("depAmt").value : document.getElementById("witAmt").value; 
+    if(!phone || !amount) return alert("Fill all fields"); 
+    const res = await fetch(`/api/mpesa/${action}`, { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ phone, amount }) }); 
+    const data = await res.json(); 
+    alert(data.message || data.error); 
+    if(res.ok) refreshData(); 
+}
 </script>
 </body>
 </html>
