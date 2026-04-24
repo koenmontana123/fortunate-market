@@ -1,136 +1,74 @@
-const express = require('express');
-const path = require('path');
-const cors = require('cors');
-const mongoose = require('mongoose');
-const bcrypt = require('bcrypt');
-const nodemailer = require('nodemailer'); 
-const axios = require('axios'); // Added missing axios
+﻿const express = require("express");
+const mongoose = require("mongoose");
+const cors = require("cors");
+const axios = require("axios");
+const path = require("path");
+const bcrypt = require("bcrypt");
+
 const app = express();
-
-// Use Render's PORT or default to 3000
-const PORT = process.env.PORT || 3000;
-
-// Business Logic Constants
-const DAILY_LIMIT = 50000; 
-const SAVINGS_INTEREST_RATE = 0.000137;
-
-// --- MIDDLEWARE ---
-app.use(cors());
 app.use(express.json());
+app.use(cors());
 app.use(express.static(__dirname));
 
-// --- DATABASE CONNECTION ---
-// On Render, we use process.env.MONGO_URI. Locally, it uses your local DB.
-const mongoURI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/fortune_bank';
-mongoose.connect(mongoURI)
-    .then(() => console.log("✅ Fortune Bank: Connected to Database"))
-    .catch(err => console.error("❌ Database connection failed:", err));
+// --- M-PESA DARAJA CREDENTIALS ---
+// Replace these with your actual keys from Safaricom Developer Portal
+const consumerKey = "YOUR_CONSUMER_KEY_HERE";
+const consumerSecret = "YOUR_CONSUMER_SECRET_HERE";
+const shortCode = "174379"; 
+const passkey = "bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919";
 
-// --- SCHEMAS ---
-const userSchema = new mongoose.Schema({
-    name: String,
-    accountNumber: { type: String, unique: true, required: true },
-    pin: String, 
-    securityQuestion: String,
-    securityAnswer: String, 
-    failedAttempts: { type: Number, default: 0 },
-    isLocked: { type: Boolean, default: false },
-    balance: { type: Number, default: 0 }, // Set to 0 as requested
-    savingsJar: { type: Number, default: 0 },
-    lastInterestApplied: { type: Date, default: Date.now }
-});
+mongoose.connect("mongodb://127.0.0.1:27017/fortune_bank");
 
-const transactionSchema = new mongoose.Schema({
-    type: String, 
-    fromAcc: String,
-    toTarget: String, 
-    amount: Number,
-    date: { type: Date, default: Date.now }
-});
+const User = mongoose.model("User", new mongoose.Schema({
+    accountNumber: String,
+    balance: { type: Number, default: 0 }
+}));
 
-const User = mongoose.model('User', userSchema);
-const Transaction = mongoose.model('Transaction', transactionSchema);
-
-// --- M-PESA DARAJA CONFIG ---
-const mpesaConfig = {
-    businessShortCode: '174379', 
-    passkey: 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919',
-    consumerKey: process.env.MPESA_CONSUMER_KEY,
-    consumerSecret: process.env.MPESA_CONSUMER_SECRET
+// --- GENERATE ACCESS TOKEN ---
+const getAccessToken = async () => {
+    const auth = Buffer.from(`${consumerKey}:${consumerSecret}`).toString("base64");
+    const res = await axios.get("https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials", {
+        headers: { Authorization: `Basic ${auth}` }
+    });
+    return res.data.access_token;
 };
 
-// --- M-PESA TOKEN MIDDLEWARE ---
-const getMpesaToken = async (req, res, next) => {
-    const auth = Buffer.from(`${mpesaConfig.consumerKey}:${mpesaConfig.consumerSecret}`).toString('base64');
-    try {
-        const response = await axios.get('https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials', {
-            headers: { Authorization: `Basic ${auth}` }
-        });
-        req.mpesaToken = response.data.access_token;
-        next();
-    } catch (error) {
-        res.status(500).json({ error: 'M-Pesa Auth Failed' });
-    }
-};
-
-// --- ROUTES ---
-
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
-});
-
-// STK PUSH (Deposit)
-app.post('/api/mpesa/stkpush', getMpesaToken, async (req, res) => {
-    const timestamp = new Date().toISOString().replace(/[^0-9]/g, '').slice(0, -3);
-    const password = Buffer.from(mpesaConfig.businessShortCode + mpesaConfig.passkey + timestamp).toString('base64');
+// --- STK PUSH ROUTE ---
+app.post("/api/mpesa/stkpush", async (req, res) => {
+    const { phone, amount, accNo } = req.body;
+    const token = await getAccessToken();
+    const date = new Date();
+    const timestamp = date.getFullYear() +
+        ("0" + (date.getMonth() + 1)).slice(-2) +
+        ("0" + date.getDate()).slice(-2) +
+        ("0" + date.getHours()).slice(-2) +
+        ("0" + date.getMinutes()).slice(-2) +
+        ("0" + date.getSeconds()).slice(-2);
+    
+    const password = Buffer.from(shortCode + passkey + timestamp).toString("base64");
 
     try {
-        await axios.post('https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest', {
-            BusinessShortCode: mpesaConfig.businessShortCode,
+        await axios.post("https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest", {
+            BusinessShortCode: shortCode,
             Password: password,
             Timestamp: timestamp,
-            TransactionType: 'CustomerPayBillOnline',
-            Amount: req.body.amount,
-            PartyA: req.body.phone,
-            PartyB: mpesaConfig.businessShortCode,
-            PhoneNumber: req.body.phone,
-            CallBackURL: 'https://fortune-bank.onrender.com/api/mpesa/callback',
-            AccountReference: 'FortuneBank',
-            TransactionDesc: 'Deposit'
+            TransactionType: "CustomerPayBillOnline",
+            Amount: amount,
+            PartyA: phone,
+            PartyB: shortCode,
+            PhoneNumber: phone,
+            CallBackURL: "https://your-render-url.onrender.com/callback",
+            AccountReference: accNo,
+            TransactionDesc: "Deposit"
         }, {
-            headers: { Authorization: `Bearer ${req.mpesaToken}` }
+            headers: { Authorization: `Bearer ${token}` }
         });
-        
-        // Simulating immediate update for testing
-        const user = await User.findOne({ accountNumber: req.body.accNo });
-        if(user) {
-            user.balance += Number(req.body.amount);
-            await user.save();
-        }
-
-        res.json({ message: 'STK Push Sent!' });
-    } catch (error) {
-        res.status(500).json({ error: 'STK Push Failed' });
+        res.json({ message: "STK Push sent to your phone!" });
+    } catch (err) {
+        res.status(500).json({ error: "M-Pesa request failed" });
     }
 });
 
-// Standard Banking Routes (Login, Register, Transfer, etc.)
-app.post('/login', async (req, res) => {
-    const { accountNumber, pin } = req.body;
-    const user = await User.findOne({ accountNumber: accountNumber.toUpperCase() });
-    if (!user || user.isLocked) return res.status(401).json({ message: "Access Denied" });
+app.get("/", (req, res) => res.sendFile(path.join(__dirname, "index.html")));
 
-    const isMatch = await bcrypt.compare(pin, user.pin);
-    if (isMatch) {
-        res.json({ message: "Success", userId: user._id });
-    } else {
-        res.status(401).json({ message: "Invalid PIN" });
-    }
-});
-
-app.get('/balance/:id', async (req, res) => {
-    const user = await User.findById(req.params.id);
-    res.json(user);
-});
-
-app.listen(PORT, () => console.log(`🚀 Bank running on port ${PORT}`));
+app.listen(3000, () => console.log("Bank Server running on port 3000"));
