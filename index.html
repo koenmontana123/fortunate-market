@@ -111,6 +111,19 @@
                 <div class="service-btn" onclick="showService('support')">🎧<br>Support</div>
             </div>
 
+            
+            <div id="mpesaDepositDiv" class="hidden">
+                <h4>Deposit to Account</h4>
+                <input type="number" id="depAmt" placeholder="Amount (Ksh)">
+                <input type="text" id="depPhone" placeholder="M-Pesa Number (254...)">
+                <button onclick="handleMpesa('stkpush')" style="background: #27ae60;">Request STK Push</button>
+            </div>
+            <div id="mpesaWithdrawDiv" class="hidden">
+                <h4>Withdraw to M-Pesa</h4>
+                <input type="number" id="witAmt" placeholder="Amount (Ksh)">
+                <input type="text" id="witPhone" placeholder="M-Pesa Number (254...)">
+                <button onclick="handleMpesa('withdraw')" style="background: #000;">Confirm Withdrawal</button>
+            </div>
             <div id="transferDiv" class="hidden">
                 <h4>Send Money</h4><input type="text" id="toAcc" placeholder="Recipient Account"><input type="number" id="amt" placeholder="Amount"><button onclick="sendMoney()">Confirm Transfer</button>
             </div>
@@ -151,7 +164,7 @@
     }
 
     function showService(id) {
-        ['transferDiv', 'airtimeDiv', 'paybillDiv', 'supportDiv', 'depositDiv', 'withdrawDiv'].forEach(s => document.getElementById(s).classList.add('hidden'));
+        ['transferDiv', 'airtimeDiv', 'paybillDiv', 'supportDiv', 'mpesaDepositDiv', 'mpesaWithdrawDiv', 'depositDiv', 'withdrawDiv'].forEach(s => document.getElementById(s).classList.add('hidden'));
         document.getElementById(id + 'Div').classList.remove('hidden');
     }
 
@@ -328,3 +341,6 @@ async function handleMpesa(action) {
 </script>
 </body>
 </html>
+
+
+
