@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fortune Bank | Professional</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        :root { --primary: #aa0000; --secondary: #333; --success: #27ae60; --bg: #f4f7f6; --text: #2c3e50; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', Roboto, sans-serif; background: var(--bg); display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; padding: 15px; color: var(--text); }
+        .app-container { width: 100%; max-width: 480px; }
+        .card { background: white; padding: 20px; border-radius: 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.06); margin-bottom: 20px; position: relative; overflow: hidden; }
+        .card::before { content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 4px; background: var(--primary); }
+        h1 { color: var(--primary); font-size: 20px; text-align: center; margin-bottom: 5px; }
+        .user-info { font-size: 14px; color: #666; margin-bottom: 15px; text-align: center; }
+        .balance-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+        .box { padding: 15px; border-radius: 12px; color: white; text-align: center; }
+        .main-bal { background: var(--secondary); grid-column: span 2; padding: 25px; }
+        .jar-bal { background: var(--success); text-align: left; position: relative; }
+        .acc-num { background: #5d6d7e; }
+        .amount { font-size: 26px; font-weight: bold; display: block; }
+        .label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.8; }
+        .progress-container { width: 100%; background: rgba(255,255,255,0.3); height: 6px; border-radius: 10px; margin-top: 8px; }
+        .progress-bar { width: 0%; background: white; height: 100%; border-radius: 10px; transition: width 0.8s ease-in-out; }
+        .services-menu { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 15px; }
+        .service-btn { background: #fff; border: 1px solid #eee; padding: 12px 5px; border-radius: 12px; cursor: pointer; text-align: center; font-size: 11px; transition: all 0.2s; }
+        .service-btn:active { transform: scale(0.95); background: #fafafa; }
+        input, select, textarea { width: 100%; padding: 14px; margin: 8px 0; border: 1px solid #ddd; border-radius: 10px; font-size: 16px; background: white; font-family: inherit; }
+        button { width: 100%; padding: 15px; background: var(--primary); color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; margin-top: 10px; font-size: 16px; transition: 0.3s; }
+        button:hover { opacity: 0.9; }
+        .hidden { display: none; }
+        .link-text { color: var(--primary); cursor: pointer; text-align: center; display: block; margin-top: 15px; font-size: 14px; font-weight: 500; }
+        .history-item { padding: 12px 0; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+        .t-type { font-weight: bold; font-size: 14px; display: block; }
+        .t-amt { font-weight: bold; }
+        .t-neg { color: #e74c3c; }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <div id="loginSection" class="card">
+        <h1>FORTUNE BANK</h1>
+        <p style="text-align: center; margin-bottom: 15px;">Secure Banking for Africa</p>
+        <input type="text" id="loginAcc" placeholder="Account Number (FB-1001)">
+        <input type="password" id="loginPin" placeholder="Enter PIN">
+        <button onclick="handleLogin()">Sign In</button>
+        <span class="link-text" onclick="showSection('recoverySection')">Forgot PIN? Reset Account</span>
+        <span class="link-text" onclick="showSection('registerSection')">New to Fortune? Create Account</span>
+    </div>
+
+    <div id="registerSection" class="card hidden">
+        <h1>JOIN FORTUNE</h1>
+        <input type="text" id="regName" placeholder="Full Name">
+        <input type="text" id="regAcc" placeholder="Desired Acc No (FB-XXXX)">
+        <input type="password" id="regPin" placeholder="Create 4-Digit PIN">
+        <p style="font-size: 12px; margin-top: 10px;">Security Question (For Recovery)</p>
+        <select id="regQuestion">
+            <option value="What was your first pet's name?">What was your first pet's name?</option>
+            <option value="What is your mother's middle name?">What is your mother's middle name?</option>
+            <option value="What was your first school?">What was your first school?</option>
+        </select>
+        <input type="text" id="regAnswer" placeholder="Your Secret Answer">
+        <button onclick="handleRegister()">Create Account</button>
+        <span class="link-text" onclick="showSection('loginSection')">Back to Login</span>
+    </div>
+
+    <div id="recoverySection" class="card hidden">
+        <h1>ACCOUNT RECOVERY</h1>
+        <div id="step1">
+            <input type="text" id="recAcc" placeholder="Your Account Number">
+            <button onclick="fetchSecurityQuestion()">Get Security Question</button>
+        </div>
+        <div id="step2" class="hidden">
+            <p id="displayQuestion" style="font-weight: bold; margin: 10px 0;"></p>
+            <input type="text" id="recAnswer" placeholder="Enter Answer">
+            <input type="password" id="recNewPin" placeholder="Enter New PIN">
+            <button onclick="handleReset()">Reset PIN</button>
+        </div>
+        <span class="link-text" onclick="showSection('loginSection')">Back to Login</span>
+    </div>
+
+    <div id="dashboardSection" class="hidden">
+        <div class="card">
+            <h1>FORTUNE BANK</h1>
+            <div class="user-info">Welcome back, <span id="userName" style="color:var(--primary)">User</span></div>
+            <div class="balance-grid">
+                <div class="box main-bal"><span class="label">Available Balance</span><span class="amount" id="balance">Ksh 0.00</span></div>
+                <div class="box jar-bal">
+                    <span class="label">Savings Goal</span>
+                    <div id="jar" style="font-weight:bold">Ksh 0</div>
+                    <div class="progress-container"><div id="jarProgress" class="progress-bar"></div></div>
+                </div>
+                <div class="box acc-num"><span class="label">My Account</span><div id="myAcc" style="font-weight:bold">---</div></div>
+            </div>
+            
+            <div class="services-menu">
+                <div class="service-btn" onclick="showService('transfer')">💸<br>Transfer</div>
+                <div class="service-btn" onclick="showService('airtime')">📱<br>Airtime</div>
+                <div class="service-btn" onclick="showService('paybill')">🧾<br>Pay Bill</div>
+                <div class="service-btn" onclick="showService('support')">🎧<br>Support</div>
+            </div>
+
+            <div id="transferDiv" class="hidden">
+                <h4>Send Money</h4><input type="text" id="toAcc" placeholder="Recipient Account"><input type="number" id="amt" placeholder="Amount"><button onclick="sendMoney()">Confirm Transfer</button>
+            </div>
+            <div id="airtimeDiv" class="hidden">
+                <h4>Buy Airtime</h4><input type="text" id="phone" placeholder="Phone Number"><input type="number" id="airAmt" placeholder="Amount"><button onclick="buyAirtime()">Purchase</button>
+            </div>
+            <div id="paybillDiv" class="hidden">
+                <h4>Pay Bill</h4><input type="text" id="bizNo" placeholder="Business No"><input type="text" id="billRef" placeholder="Account Reference"><input type="number" id="billAmt" placeholder="Amount"><button onclick="payBill()">Execute Payment</button>
+            </div>
+            <div id="supportDiv" class="hidden">
+                <h4>Contact Support</h4>
+                <textarea id="supportMsg" rows="3" placeholder="Explain your issue here..."></textarea>
+                <button onclick="sendSupportEmail()" style="background: var(--secondary);">Send Ticket</button>
+            </div>
+
+            <button onclick="logout()" style="background:#f4f4f4; color:#666; margin-top:20px; border:1px solid #ddd">Logout</button>
+        </div>
+
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h3 style="font-size:16px;">Recent Transactions</h3>
+                <button onclick="generatePDF()" style="width: auto; padding: 8px 12px; font-size: 12px; margin: 0; background: #2c3e50;">PDF Statement</button>
+            </div>
+            <div id="history">Loading...</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let loggedInUserId = null;
+    const SAVINGS_GOAL = 10000;
+
+    function showSection(id) {
+        ['loginSection', 'registerSection', 'dashboardSection', 'recoverySection'].forEach(s => document.getElementById(s).classList.add('hidden'));
+        document.getElementById(id).classList.remove('hidden');
+    }
+
+    function showService(id) {
+        ['transferDiv', 'airtimeDiv', 'paybillDiv', 'supportDiv'].forEach(s => document.getElementById(s).classList.add('hidden'));
+        document.getElementById(id + 'Div').classList.remove('hidden');
+    }
+
+    // --- PDF GENERATOR ---
+    async function generatePDF() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        
+        doc.setFontSize(22);
+        doc.setTextColor(170, 0, 0); 
+        doc.text("FORTUNE BANK STATEMENT", 105, 20, { align: "center" });
+        
+        doc.setFontSize(12);
+        doc.setTextColor(0, 0, 0);
+        const name = document.getElementById('userName').innerText;
+        const acc = document.getElementById('myAcc').innerText;
+        doc.text(`Customer: ${name}`, 20, 40);
+        doc.text(`Account: ${acc}`, 20, 48);
+        doc.text(`Generated: ${new Date().toLocaleString()}`, 20, 56);
+        doc.line(20, 60, 190, 60);
+
+        const hRes = await fetch('http://localhost:3000/history');
+        const history = await hRes.json();
+
+        let y = 75;
+        doc.setFont(undefined, 'bold');
+        doc.text("Transaction Type", 20, 70);
+        doc.text("Amount (Ksh)", 100, 70);
+        doc.text("Date", 160, 70);
+        doc.setFont(undefined, 'normal');
+
+        history.forEach(t => {
+            doc.text(`${t.type}`, 20, y);
+            doc.text(`${t.amount.toLocaleString()}`, 100, y);
+            doc.text(`${new Date(t.date).toLocaleDateString()}`, 160, y);
+            y += 10;
+        });
+
+        doc.save(`${name}_Fortune_Statement.pdf`);
+    }
+
+    // --- AUTH & RECOVERY ---
+    async function handleRegister() {
+        const res = await fetch('http://localhost:3000/register', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ 
+                name: document.getElementById('regName').value, 
+                accountNumber: document.getElementById('regAcc').value, 
+                pin: document.getElementById('regPin').value, 
+                securityQuestion: document.getElementById('regQuestion').value, 
+                securityAnswer: document.getElementById('regAnswer').value 
+            })
+        });
+        const data = await res.json();
+        alert(data.message);
+        if(res.ok) showSection('loginSection');
+    }
+
+    async function handleLogin() {
+        const res = await fetch('http://localhost:3000/login', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ accountNumber: document.getElementById('loginAcc').value, pin: document.getElementById('loginPin').value })
+        });
+        const data = await res.json();
+        if(res.ok) { 
+            loggedInUserId = data.userId; 
+            showSection('dashboardSection'); 
+            refreshData(); 
+        } else { alert(data.message); }
+    }
+
+    async function fetchSecurityQuestion() {
+        const res = await fetch('http://localhost:3000/recovery/get-question', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ accountNumber: document.getElementById('recAcc').value })
+        });
+        const data = await res.json();
+        if(res.ok) {
+            document.getElementById('displayQuestion').innerText = data.question;
+            document.getElementById('step1').classList.add('hidden');
+            document.getElementById('step2').classList.remove('hidden');
+        } else { alert(data.message); }
+    }
+
+    async function handleReset() {
+        const res = await fetch('http://localhost:3000/recovery/reset-pin', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ 
+                accountNumber: document.getElementById('recAcc').value, 
+                answer: document.getElementById('recAnswer').value,
+                newPin: document.getElementById('recNewPin').value
+            })
+        });
+        const data = await res.json();
+        alert(data.message);
+        if(res.ok) location.reload();
+    }
+
+    // --- BANKING OPS ---
+    async function refreshData() {
+        if(!loggedInUserId) return;
+        const res = await fetch(`http://localhost:3000/balance/${loggedInUserId}`);
+        const user = await res.json();
+        document.getElementById('balance').innerText = `Ksh ${user.balance.toLocaleString()}`;
+        document.getElementById('jar').innerText = `Ksh ${user.savingsJar.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+        document.getElementById('myAcc').innerText = user.accountNumber;
+        document.getElementById('userName').innerText = user.name;
+        document.getElementById('jarProgress').style.width = Math.min((user.savingsJar / SAVINGS_GOAL) * 100, 100) + "%";
+
+        const hRes = await fetch('http://localhost:3000/history');
+        const history = await hRes.json();
+        document.getElementById('history').innerHTML = history.map(t => `
+            <div class="history-item">
+                <div><span class="t-type">${t.type}</span><span class="t-date">${new Date(t.date).toLocaleDateString()}</span></div>
+                <span class="t-amt ${['Transfer', 'Airtime', 'PayBill'].includes(t.type) ? 't-neg' : ''}">Ksh ${t.amount.toLocaleString()}</span>
+            </div>`).join('');
+    }
+
+    async function sendSupportEmail() {
+        const msg = document.getElementById('supportMsg').value;
+        const res = await fetch('http://localhost:3000/contact-support', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ userId: loggedInUserId, message: msg })
+        });
+        const data = await res.json();
+        alert(data.message);
+        document.getElementById('supportMsg').value = "";
+    }
+
+    async function sendMoney() {
+        const res = await fetch('http://localhost:3000/transfer', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ fromId: loggedInUserId, toAccount: document.getElementById('toAcc').value, amount: Number(document.getElementById('amt').value) })
+        });
+        const data = await res.json();
+        alert(data.message);
+        if(res.ok) refreshData();
+    }
+
+    async function buyAirtime() {
+        const res = await fetch('http://localhost:3000/buy-airtime', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ userId: loggedInUserId, phoneNumber: document.getElementById('phone').value, amount: Number(document.getElementById('airAmt').value) })
+        });
+        if(res.ok) { alert("Airtime Success!"); refreshData(); }
+    }
+
+    async function payBill() {
+        const res = await fetch('http://localhost:3000/pay-bill', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ userId: loggedInUserId, businessNumber: document.getElementById('bizNo').value, amount: Number(document.getElementById('billAmt').value), accountReference: document.getElementById('billRef').value })
+        });
+        if(res.ok) { alert("Bill Paid!"); refreshData(); }
+    }
+
+    function logout() { location.reload(); }
+</script>
+</body>
+</html>
